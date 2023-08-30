@@ -1,0 +1,365 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+# Load packages
+library("TCGAbiolinks")
+library("limma")
+library("edgeR")
+library("glmnet")
+library("factoextra")
+library("FactoMineR")
+library("caret")
+library("SummarizedExperiment")
+library("gplots")
+library("survival")
+library("survminer")
+library("RColorBrewer")
+library("gProfileR")
+library("genefilter")
+```
+#https://github.com/antoniofederico87/drugMap/blob/master/processing/pipeline_all_cancers.R
+
+```{r}
+query_NT_paired_Proteome <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Proteome Profiling",
+                            #data.type = "Gene Expression Quantification", 
+                            sample.type = "Solid Tissue Normal")
+
+
+samplesDown_NT_Proteome <- getResults(query_NT_paired_Proteome,cols=c("cases"))
+
+newvec_Proteome <- sapply(samplesDown_NT_Proteome, function(x) paste0(substr(x, start = 1, stop = 13), "*"))
+
+
+query_TP_paired_Proteome <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Proteome Profiling",
+                            #data.type = "Gene Expression Quantification", 
+                             sample.type = "Primary Tumor")
+
+
+samplesDown_TP_Proteome <- getResults(query_TP_paired_Proteome,cols=c("cases"))
+```
+```{r}
+head(samplesDown_TP_Proteome,1)
+```
+
+
+
+```{r}
+### First check: if all the control samples have the tumoral counterpart, and viceversa ###
+
+if(length(samplesDown_NT_Proteome)!=length(samplesDown_TP_Proteome)){
+  short_barcodes_NT <- sapply(samplesDown_NT_Proteome, function(x) substr(x, start = 1, stop = 13))
+  short_barcodes_TP <- sapply(samplesDown_TP_Proteome, function(x) substr(x, start = 1, stop = 13))
+  if(length(setdiff(short_barcodes_NT, short_barcodes_TP))>0){
+    samplesDown_NT_Proteome <- samplesDown_NT_Proteome[-which(short_barcodes_NT %in% setdiff(short_barcodes_NT, short_barcodes_TP))]
+  }else if(length(setdiff(short_barcodes_TP, short_barcodes_NT))>0) {
+    samplesDown_TP_Proteome <- samplesDown_TP_Proteome[-which(short_barcodes_TP %in% setdiff(short_barcodes_TP, short_barcodes_NT))]
+  }
+}
+
+### Second check: remove all the duplicated samples in the tumor or normal counterparts ###
+
+if(any(table(short_barcodes_TP)>1)){
+  for(i in 1:length(names(which(table(short_barcodes_TP)>1)))){
+    duplicated_samples <- samplesDown_TP_Proteome[grep(samplesDown_TP_Proteome, pattern = names(which(table(short_barcodes_TP)!=1))[i])]
+    samplesDown_TP_Proteome <- samplesDown_TP_Proteome[-which(samplesDown_TP_Proteome %in% duplicated_samples)]
+    samplesDown_TP_Proteome <- append(x = samplesDown_TP_Proteome, values = duplicated_samples[1])
+    }
+     
+  }else if(any(table(short_barcodes_NT)>1)){
+    for(k in 1:length(names(which(table(short_barcodes_NT)>1)))){
+      duplicated_samples <- samplesDown_NT_Proteome[grep(samplesDown_NT_Proteome, pattern = names(which(table(short_barcodes_NT)!=1))[i])]
+      samplesDown_NT_Proteome <- samplesDown_NT_Proteome[-which(samplesDown_NT_Proteome %in% duplicated_samples)]
+      samplesDown_NT_Proteome <- append(x = samplesDown_NT_Proteome, values = duplicated_samples[1])
+    }
+  }
+
+print(paste("The number of normal samples for", "TCGA-BRCA", "before checking for duplicates is:", length(samplesDown_NT_Proteome)))
+print(paste("The number of tumoral samples for", "TCGA-BRCA", "before checking for duplicates is:", length(samplesDown_TP_Proteome)))
+```
+
+
+#Check for duplicates
+
+```{r}
+query_NT_paired_Proteome <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Proteome Profiling",
+                            #data.type = "Gene Expression Quantification", 
+                            sample.type = "Solid Tissue Normal", barcode = samplesDown_NT_Proteome)
+
+
+samplesDown_NT_Proteome <- getResults(query_NT_paired_Proteome,cols=c("cases"))
+
+newvec_Proteome <- sapply(samplesDown_NT_Proteome, function(x) paste0(substr(x, start = 1, stop = 13), "*"))
+
+
+query_TP_paired_Proteome <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Proteome Profiling",
+                            #data.type = "Gene Expression Quantification", 
+                            sample.type = "Primary Tumor", barcode = samplesDown_TP_Proteome)
+
+
+samplesDown_TP_Proteome <- getResults(query_TP_paired_Proteome,cols=c("cases"))
+
+print(paste("The number of normal samples for", "TCGA-BRCA", "after checking for duplicates is:", length(samplesDown_NT_Proteome)))
+print(paste("The number of tumoral samples for", "TCGA-BRCA", "after checking for duplicates is:", length(samplesDown_TP_Proteome)))
+
+
+GDCdownload(query_TP_paired_Proteome, directory = "Tumor_Proteome_Paired")
+GDCdownload(query_NT_paired_Proteome, directory = "Normal_Proteome_Paired")
+```
+
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+```{r}
+query_NT_paired_SNP <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Simple Nucleotide Variation",
+                            #data.type = "Gene Expression Quantification", 
+                            access="open",
+                            sample.type = "Solid Tissue Normal")
+
+
+samplesDown_NT_SNP <- getResults(query_NT_paired_SNP)#,cols=c("cases"))
+
+newvec_SNP <- sapply(samplesDown_NT_SNP, function(x) paste0(substr(x, start = 1, stop = 13), "*"))
+
+
+query_TP_paired_SNP <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Simple Nucleotide Variation",
+                            #data.type = "Gene Expression Quantification", 
+                            access="open")
+                            # sample.type = "Primary Tumor")
+
+
+samplesDown_TP_SNP <- getResults(query_TP_paired_SNP)#,cols=c("cases"))
+```
+
+
+```{r}
+query_NT_paired_BulkSeq <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Transcriptome Profiling",
+                            #data.type = "Gene Expression Quantification", 
+                            workflow.type = "STAR - Counts", sample.type = "Solid Tissue Normal")
+
+
+samplesDown_NT_BulkSeq <- getResults(query_NT_paired_BulkSeq,cols=c("cases"))
+
+newvec_BulkSeq <- sapply(samplesDown_NT_BulkSeq, function(x) paste0(substr(x, start = 1, stop = 13), "*"))
+
+
+query_TP_paired_BulkSeq <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Transcriptome Profiling",
+                            #data.type = "Gene Expression Quantification", 
+                            workflow.type = "STAR - Counts",  sample.type = "Primary Tumor")
+
+
+samplesDown_TP_BulkSeq <- getResults(query_TP_paired_BulkSeq,cols=c("cases"))
+```
+
+
+
+
+
+
+
+```{r}
+#Find Matching samples Between Primary tumor and Control
+
+check_matching_prefix <- function(list1, list2) {
+  matches <- character(0)
+  for (item1 in list1) {
+    prefix1 <- substr(item1, 1, 13)
+    if (any(substr(list2, 1, 13) == prefix1)) {
+      matches <- c(matches, item1)
+    }
+  }
+  return(matches)
+}
+
+matching_samplesNT <- check_matching_prefix(samplesDown_NT_BulkSeq, samplesDown_TP_BulkSeq)
+print(matching_samplesNT)
+  
+matching_samplesTP <- check_matching_prefix(samplesDown_TP_BulkSeq, samplesDown_NT_BulkSeq)
+print(matching_samplesTP)
+
+# Check for duplicates
+duplicatesNT <- matching_samplesNT[duplicated(matching_samplesNT)]
+
+# Print out the duplicated values
+cat("Duplicated values:\n")
+for (dup in duplicatesNT) {
+  cat(dup, "\n")
+}
+
+duplicatesTP <- matching_samplesTP[duplicated(matching_samplesTP)]
+
+# Print out the duplicated values
+cat("Duplicated values:\n")
+for (dup in duplicatesTP) {
+  cat(dup, "\n")
+}
+
+
+# Extract the first 13 characters from each sample ID
+short_sample_idsTP <- substr(matching_samplesTP, 1, 13)
+
+# Calculate the length of unique short sample IDs
+length(unique(short_sample_idsTP))
+
+# Extract the first 13 characters from each sample ID
+short_sample_idsNT <- substr(matching_samplesNT, 1, 13)
+
+# Calculate the length of unique short sample IDs
+length(unique(short_sample_idsNT))
+
+```
+
+
+
+```{r}
+#Download the matching barcodes for Bulk seq Data:
+
+# Modify samplesDown_NT_BulkSeq to include only matching samples
+Matching_NT_BulkSeq <- samplesDown_NT_BulkSeq[samplesDown_NT_BulkSeq %in% matching_samplesNT]
+
+
+query_NT_paired_BulkSeq <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Transcriptome Profiling",
+                            data.type = "Gene Expression Quantification", 
+                            workflow.type = "STAR - Counts", sample.type = "Solid Tissue Normal", barcode = Matching_NT_BulkSeq)
+
+
+
+
+
+
+# Modify samplesDown_TP_BulkSeq to include only matching samples
+Matching_TP_BulkSeq <- samplesDown_TP_BulkSeq[samplesDown_TP_BulkSeq %in% matching_samplesTP]
+
+query_TP_paired_BulkSeq <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Transcriptome Profiling",
+                            data.type = "Gene Expression Quantification", 
+                            workflow.type = "STAR - Counts", sample.type = "Primary Tumor", barcode = Matching_TP_BulkSeq)
+
+
+
+
+GDCdownload(query_TP_paired_BulkSeq, directory = "Tumor_BulkSeq_Paired")
+GDCdownload(query_NT_paired_BulkSeq, directory = "Normal_BulkSeq_Paired")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+query_NT_paired <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Transcriptome Profiling",
+                            data.type = "Gene Expression Quantification", 
+                            workflow.type = "HTSeq - FPKM-UQ", sample.type = "Solid Tissue Normal", barcode = samplesDown_NT)
+
+
+samplesDown_NT <- getResults(query_NT_paired,cols=c("cases"))
+
+newvec <- sapply(samplesDown_NT, function(x) paste0(substr(x, start = 1, stop = 13), "*"))
+
+
+query_TP_paired <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Transcriptome Profiling",
+                            data.type = "Gene Expression Quantification", 
+                            workflow.type = "HTSeq - FPKM-UQ", sample.type = "Primary solid Tumor", barcode = samplesDown_TP)
+
+
+samplesDown_TP <- getResults(query_TP_paired,cols=c("cases"))
+
+print(paste("The number of normal samples for", project_flag, "after checking for duplicates is:", length(samplesDown_NT)))
+print(paste("The number of tumoral samples for", project_flag, "after checking for duplicates is:", length(samplesDown_TP)))
+
+
+GDCdownload(query_TP_paired, directory = "Tumor")
+GDCdownload(query_NT_paired, directory = "Normal")
+
+
+pathnormal <- paste0("./secondtest/", "TCGA-BRCA", "/Normal/", project_flag, "/harmonized/Transcriptome_Profiling/Gene_Expression_Quantification")
+pathtumor <- paste0("./secondtest/", "TCGA-BRCA", "/Tumor/", project_flag, "/harmonized/Transcriptome_Profiling/Gene_Expression_Quantification")
+
+
+
+### File di conversione filenames/barcodes###
+
+##TUMOR unzip##
+barcodes_tumor <- data.frame(query_TP_paired$results[[1]]$file_name, query_TP_paired$results[[1]]$cases)
+colnames(barcodes_tumor) <- c("filename", "barcode")
+
+
+list1 <- list.files(path = pathtumor, recursive = TRUE)
+for (i in 1:length(list1))
+  R.utils::gunzip(paste0(pathtumor,"/", list1[i]), destname=paste0(pathtumor,"/",strsplit(gsub(".gz","",list1[i]),"/")[[1]][2]))
+
+#setwd("./BRCA_data/") #uncomment in taito
+list.files(".")
+
+
+#unlink(list.dirs(pathtumor), recursive = TRUE) #elimina cartelle (equivalente al comando rmdir)
+
+
+##NORMAL unzip##
+
+barcodes_normal <- data.frame(query_NT_paired$results[[1]]$file_name, query_NT_paired$results[[1]]$cases)
+colnames(barcodes_normal) <- c("filename", "barcode")
+
+
+list1 <- list.files(path = pathnormal, recursive = TRUE)
+for (i in 1:length(list1))
+  R.utils::gunzip(paste0(pathnormal,"/", list1[i]), destname=paste0(pathnormal,"/",strsplit(gsub(".gz","",list1[i]),"/")[[1]][2]))
+
+#setwd("./BRCA_data/") #uncomment in taito
+list.files(pathnormal)
+
+
+#unlink(list.dirs(pathnormal), recursive = TRUE) #elimina cartelle (equivalente al comando rmdir)
+
+
+###TUMOR matrix###
+setwd(pathtumor)
+myfiles <- sort(list.files(pathtumor, pattern = "*.FPKM-UQ.txt"))
+sample1 <- read.table(myfiles[1], header = F, sep = "\t", quote = "")
+rownames(sample1) <- sample1$V1
+tumor <- data.frame(rownames(sample1), sample1[,2])
+
+
+for (file in 2:length(myfiles)) {
+  sample <- read.table(myfiles[file], header = FALSE, sep = "\t", quote = "")
+  tumor <- cbind(tumor, sample[,2])
+}
+
+tumor[,1] <- NULL
+row.names(tumor) <- sample$V1
+colnames(tumor) <- myfiles
+head(tumor)
+
+
+```
