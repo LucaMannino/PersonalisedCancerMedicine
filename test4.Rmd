@@ -290,8 +290,7 @@ query_TP_paired_SNP <- GDCquery(project = "TCGA-BRCA",
                             
 
 
-samplesDown_TP_SNP <- getResults(query_TP_paired_SNP,cols=c("cases"))
-GDCdownload(samplesDown_TP_SNP, directory = "SNP_DATA")
+GDCdownload(query_TP_paired_SNP, directory = "SNP_DATA")
 ```
 
 
