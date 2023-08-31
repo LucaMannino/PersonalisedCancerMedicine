@@ -3,7 +3,6 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-
 ```{r}
 # Load packages
 library("TCGAbiolinks")
@@ -21,7 +20,8 @@ library("RColorBrewer")
 library("gProfileR")
 library("genefilter")
 ```
-#https://github.com/antoniofederico87/drugMap/blob/master/processing/pipeline_all_cancers.R
+
+\#<https://github.com/antoniofederico87/drugMap/blob/master/processing/pipeline_all_cancers.R>
 
 ```{r}
 query_NT_paired_Proteome <- GDCquery(project = "TCGA-BRCA",
@@ -43,11 +43,10 @@ query_TP_paired_Proteome <- GDCquery(project = "TCGA-BRCA",
 
 samplesDown_TP_Proteome <- getResults(query_TP_paired_Proteome,cols=c("cases"))
 ```
+
 ```{r}
 head(samplesDown_TP_Proteome,1)
 ```
-
-
 
 ```{r}
 ### First check: if all the control samples have the tumoral counterpart, and viceversa ###
@@ -83,7 +82,6 @@ print(paste("The number of normal samples for", "TCGA-BRCA", "before checking fo
 print(paste("The number of tumoral samples for", "TCGA-BRCA", "before checking for duplicates is:", length(samplesDown_TP_Proteome)))
 ```
 
-
 #Check for duplicates
 
 ```{r}
@@ -114,29 +112,21 @@ GDCdownload(query_TP_paired_Proteome, directory = "Tumor_Proteome_Paired")
 GDCdownload(query_NT_paired_Proteome, directory = "Normal_Proteome_Paired")
 ```
 
-
-
 ```{r}
 
 ```
 
-
-
-
-
-
-
 ```{r}
-query_NT_paired_SNP <- GDCquery(project = "TCGA-BRCA",
-                            data.category = "Simple Nucleotide Variation",
-                            #data.type = "Gene Expression Quantification", 
-                            access="open",
-                            sample.type = "Solid Tissue Normal")
+#query_NT_paired_SNP <- GDCquery(project = "TCGA-BRCA",
+#                            data.category = "Simple Nucleotide Variation",
+#                            #data.type = "Gene Expression Quantification", 
+#                            access="open",
+#                            sample.type = "Solid Tissue Normal")
 
 
-samplesDown_NT_SNP <- getResults(query_NT_paired_SNP)#,cols=c("cases"))
+#samplesDown_NT_SNP <- getResults(query_NT_paired_SNP)#,cols=c("cases"))
 
-newvec_SNP <- sapply(samplesDown_NT_SNP, function(x) paste0(substr(x, start = 1, stop = 13), "*"))
+#newvec_SNP <- sapply(samplesDown_NT_SNP, function(x) paste0(substr(x, start = 1, stop = 13), "*"))
 
 
 query_TP_paired_SNP <- GDCquery(project = "TCGA-BRCA",
@@ -146,9 +136,8 @@ query_TP_paired_SNP <- GDCquery(project = "TCGA-BRCA",
                             # sample.type = "Primary Tumor")
 
 
-samplesDown_TP_SNP <- getResults(query_TP_paired_SNP)#,cols=c("cases"))
+samplesDown_TP_SNP <- getResults(query_TP_paired_SNP,cols=c("cases"))
 ```
-
 
 ```{r}
 query_NT_paired_BulkSeq <- GDCquery(project = "TCGA-BRCA",
@@ -170,12 +159,6 @@ query_TP_paired_BulkSeq <- GDCquery(project = "TCGA-BRCA",
 
 samplesDown_TP_BulkSeq <- getResults(query_TP_paired_BulkSeq,cols=c("cases"))
 ```
-
-
-
-
-
-
 
 ```{r}
 #Find Matching samples Between Primary tumor and Control
@@ -229,8 +212,6 @@ length(unique(short_sample_idsNT))
 
 ```
 
-
-
 ```{r}
 #Download the matching barcodes for Bulk seq Data:
 
@@ -268,12 +249,53 @@ GDCdownload(query_NT_paired_BulkSeq, directory = "Normal_BulkSeq_Paired")
 
 
 
+```{r}
+query_TP_paired_SNP <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Simple Nucleotide Variation",
+                            #data.type = "Gene Expression Quantification", 
+                            access="open")
+                            # sample.type = "Primary Tumor")
+
+
+samplesDown_TP_SNP <- getResults(query_TP_paired_SNP,cols=c("cases"))
+```
+
+
+```{r}
+
+# Extract first 13 characters from individual samples
+individual_samples_first_13 <- substr(samplesDown_TP_SNP, 1, 13)
+
+# Extract first 13 characters from Matching_TP_BulkSeq
+matching_samples_first_13 <- substr(Matching_TP_BulkSeq, 1, 13)
+
+# Check for matches
+matching_indices <- which(individual_samples_first_13 %in% matching_samples_first_13)
+
+# Get the matching individual samples
+matching_individual_samples <- samplesDown_TP_SNP[matching_indices]
+
+# Print the matching individual samples
+print(matching_individual_samples)
+
+```
 
 
 
+```{r}
+query_TP_paired_SNP <- GDCquery(project = "TCGA-BRCA",
+                            data.category = "Simple Nucleotide Variation",
+                            #data.type = "Gene Expression Quantification", 
+                            access="open",barcode = matching_individual_samples)
+                            
 
 
+samplesDown_TP_SNP <- getResults(query_TP_paired_SNP,cols=c("cases"))
+GDCdownload(samplesDown_TP_SNP, directory = "SNP_DATA")
+```
 
+
+Toninos code from github:
 
 ```{r}
 query_NT_paired <- GDCquery(project = "TCGA-BRCA",
@@ -363,3 +385,6 @@ head(tumor)
 
 
 ```
+
+
+
